@@ -2,13 +2,28 @@ require('dotenv').config();
 
 const express = require("express");
 const http = require("http");
+const https = require('https');
 const { v4: uuidv4 } = require("uuid");
 const cors = require("cors");
 const twilio = require("twilio");
+const fs = require("fs");
 
-const PORT = process.env.PORT || 5002;
+// Certificate
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/identy.cloud/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/identy.cloud/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/identy.cloud/chain.pem', 'utf8');
+
+const credentials = {
+    key: privateKey,
+    cert: certificate,
+    ca: ca
+};
+
+const hostname = 'identy.cloud';
+const portHTTPS = process.env.PORT_HTTPS || 5000;
+
 const app = express();
-const server = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);
 
 app.use(cors());
 
@@ -34,9 +49,9 @@ app.get("/api/room-exists/:roomId", (req, res) => {
 });
 
 app.get("/api/get-turn-credentials", (req, res) => {
-  
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  const accountSid = 'AC7866bca7ae3a8c046e00ec0c6a6f954b';
+  const authToken = 'f9e1fe4e35c436ff7cd03b46492b2aa9';
 
   const client = twilio(accountSid, authToken);
 
@@ -52,11 +67,11 @@ app.get("/api/get-turn-credentials", (req, res) => {
   }
 });
 
-const io = require("socket.io")(server, {
+const io = require("socket.io")(httpsServer, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
-  },
+    methods: ["GET", "POST"]
+  }
 });
 
 io.on("connection", (socket) => {
@@ -231,6 +246,7 @@ const directMessageHandler = (data, socket) => {
   }
 };
 
-server.listen(PORT, () => {
-  console.log(`Server is listening on ${PORT}`);
+
+httpsServer.listen(portHTTPS, hostname, () => {
+ console.log(`Server running at https://${hostname}:${portHTTPS}/`);
 });
